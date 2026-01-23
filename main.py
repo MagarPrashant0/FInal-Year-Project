@@ -150,7 +150,7 @@ def clear2():
 #######################################################################################
 
 def TakeImages():
-    print("--- Starting TakeImages Function ---") # DEBUG
+    print("--- Starting TakeImages Function ---") 
     check_haarcascadefile()
     columns = ['SERIAL NO.', '', 'ID', '', 'NAME']
     assure_path_exists("StudentDetails/")
@@ -174,11 +174,11 @@ def TakeImages():
     Id = (txt.get())
     name = (txt2.get())
 
-    print(f"DEBUG: ID entered = '{Id}'")       # DEBUG
-    print(f"DEBUG: Name entered = '{name}'")   # DEBUG
+    print(f"DEBUG: ID entered = '{Id}'")       
+    print(f"DEBUG: Name entered = '{name}'")   
 
     if ((name.isalpha()) or (' ' in name)):
-        print("DEBUG: Name check passed. Attempting to open camera...") # DEBUG
+        print("DEBUG: Name check passed. Attempting to open camera...") 
 
         cam = cv2.VideoCapture(0)
 
@@ -187,7 +187,6 @@ def TakeImages():
             mess._show(title='Camera Error', message='Could not open camera')
             return
 
-        # UPDATE THIS LINE WITH YOUR HARDCODED PATH
         harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
 
         detector = cv2.CascadeClassifier(harcascadePath)
@@ -196,7 +195,7 @@ def TakeImages():
             return
 
         sampleNum = 0
-        print("DEBUG: Loop starting. Please look at the camera.") # DEBUG
+        print("DEBUG: Loop starting. Please look at the camera.") 
 
         while (True):
             ret, img = cam.read()
@@ -211,7 +210,6 @@ def TakeImages():
                 cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
                 sampleNum = sampleNum + 1
 
-                # Fix the space in filename here too
                 cv2.imwrite("TrainingImage\\" + name + "." + str(serial) + "." + Id + '.' + str(sampleNum) + ".jpg",
                             gray[y:y + h, x:x + w])
                 cv2.imshow('Taking Images', img)
@@ -224,7 +222,7 @@ def TakeImages():
 
         cam.release()
         cv2.destroyAllWindows()
-        print(f"DEBUG: Process finished. Images taken: {sampleNum}") # DEBUG
+        print(f"DEBUG: Process finished. Images taken: {sampleNum}") 
 
         res = "Images Taken for ID : " + Id
         row = [serial, '', Id, '', name]
@@ -234,7 +232,7 @@ def TakeImages():
         csvFile.close()
         message1.configure(text=res)
     else:
-        print("DEBUG: Name check FAILED. Name must be letters only.") # DEBUG
+        print("DEBUG: Name check FAILED. Name must be letters only.") 
         if (name.isalpha() == False):
             res = "Enter Correct name (Letters only)"
             message.configure(text=res)
@@ -356,10 +354,9 @@ def TrackImages():
 
         cv2.imshow('Taking Attendance', im)
 
-        # --- FIX: ALLOW CLOSING WITH 'X' BUTTON OR 'q' ---
+        # ALLOW CLOSING WITH 'X' BUTTON OR 'Q' AFTER TAKING ATTENDANCE
         if (cv2.waitKey(1) == ord('q')):
             break
-        # Check if the window was closed using the mouse
         try:
             if cv2.getWindowProperty('Taking Attendance', 0) < 0:
                 break
@@ -397,7 +394,7 @@ def TrackImages():
                         iidd = str(lines[0]) + '   '
                         tv.insert('', 0, text=iidd, values=(str(lines[2]), str(lines[4]), str(lines[6])))
     else:
-        # Optional: Tell user no face was recognized
+        # Tell user no face was recognized
         mess._show(title='No Attendance', message='No registered face was recognized.')
         pass
 
