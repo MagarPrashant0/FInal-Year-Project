@@ -1,5 +1,3 @@
-feature-branch
-# Final Year Project
 # Final Year Project
 
 We have used the modules 
@@ -93,12 +91,3 @@ python main.py
 2. Feature Extraction: It crops the face and saves it.
 3. Training: The LBPH algorithm analyzes the saved photos and creates a mathematical model (Trainner.yml).
 4. Recognition: When taking attendance, the live video is compared against the Trainner.yml model to find a match.
-
-
-
-
-
-
-
-
-main
