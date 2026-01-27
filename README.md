@@ -91,10 +91,8 @@ python main.py
 2. Feature Extraction: It crops the face and saves it.
 3. Training: The LBPH algorithm analyzes the saved photos and creates a mathematical model (Trainner.yml).
 4. Recognition: When taking attendance, the live video is compared against the Trainner.yml model to find a match.
-# Important Notes
-1. Lighting: Ensure good lighting when taking images and marking attendance for better accuracy.
-2. Python Version: Recommended to use Python 3.10 or 3.11 for best compatibility with OpenCV. (Python 3.13 may have stability issues).
-3. Camera: If the camera doesn't open, ensure no other app (like Zoom) is using it.
+
+
 
 
 
