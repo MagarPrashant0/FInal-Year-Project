@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import messagebox as mess
 import tkinter.simpledialog as tsd
 import cv2,os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting current working directory (CWD) to the script's folder
 import csv
 import numpy as np
 from PIL import Image
@@ -13,26 +13,26 @@ import datetime
 import time
 
 ############################################# FUNCTIONS ################################################
-
+# Creates the directory for a given file path if it doesn't already exist
 def assure_path_exists(path):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
 
 ##################################################################################
-
+# Updates the clock label with the current time every 200ms
 def tick():
     time_string = time.strftime('%H:%M:%S')
     clock.config(text=time_string)
     clock.after(200,tick)
 
 ###################################################################################
-
+# Opens a popup window displaying contact information
 def contact():
     mess._show(title='Contact us', message="Please contact us on : 'alemagar523@gmail.com' ")
 
 ###################################################################################
-
+# Verifies that the Haarcascade file exists; closes the app if missing
 def check_haarcascadefile():
     path = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
 
@@ -80,7 +80,7 @@ def save_pass():
     master.destroy()
 
 ###################################################################################
-
+# Validates user input to change the admin password, or creates a new one if none exists
 def change_pass():
     global master
     master = tk.Tk()
@@ -110,7 +110,7 @@ def change_pass():
     master.mainloop()
 
 #####################################################################################
-
+# Asks for admin password; if correct, runs the TrainImages() function
 def psw():
     assure_path_exists("TrainingImageLabel/")
     exists1 = os.path.isfile("TrainingImageLabel\\psd.txt")
@@ -135,20 +135,20 @@ def psw():
         mess._show(title='Wrong Password', message='You have entered wrong password')
 
 ######################################################################################
-
+# Clears the first input box (ID) and resets the status message
 def clear():
     txt.delete(0, 'end')
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
 
-
+# Clears the second input box (Name) and resets the status message
 def clear2():
     txt2.delete(0, 'end')
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
 
 #######################################################################################
-
+# Captures 100 face samples via webcam, saves them to the training folder, and updates the student database (CSV)
 def TakeImages():
     print("--- Starting TakeImages Function ---") 
     check_haarcascadefile()
@@ -187,6 +187,7 @@ def TakeImages():
             mess._show(title='Camera Error', message='Could not open camera')
             return
 
+        # UPDATE THIS LINE WITH OUR HARDCODED PATH
         harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
 
         detector = cv2.CascadeClassifier(harcascadePath)
@@ -238,7 +239,7 @@ def TakeImages():
             message.configure(text=res)
 
 ########################################################################################
-
+# Reads all training images, trains the LBPH algorithm, and saves the model as 'Trainner.yml'
 def TrainImages():
     check_haarcascadefile()
     assure_path_exists("TrainingImageLabel/")
@@ -279,7 +280,7 @@ def getImagesAndLabels(path):
     return faces, Ids
 
 ###########################################################################################
-
+# Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
     check_haarcascadefile()
     assure_path_exists("Attendance//")
@@ -354,7 +355,6 @@ def TrackImages():
 
         cv2.imshow('Taking Attendance', im)
 
-        # ALLOW CLOSING WITH 'X' BUTTON OR 'Q' AFTER TAKING ATTENDANCE
         if (cv2.waitKey(1) == ord('q')):
             break
         try:
@@ -362,7 +362,6 @@ def TrackImages():
                 break
         except:
             pass
-        # -------------------------------------------------
 
     # Close camera immediately
     cam.release()
@@ -399,7 +398,7 @@ def TrackImages():
         pass
 
 ######################################## USED STUFFS ############################################
-
+# Initialize global variables and setup date formatting (Number to Month Name)
 global key
 key = ''
 
@@ -422,7 +421,7 @@ mont={'01':'January',
       }
 
 ######################################## GUI FRONT-END ###########################################
-
+# Sets up the main GUI window, defines layout frames (Left/Right), input fields, and calculates total registered users on startup
 window = tk.Tk()
 window.geometry("1280x720")
 window.resizable(True,False)
