@@ -1,7 +1,7 @@
 # Final Year Project
 
-We have used the modules 
-1.	**opencv-contrib-python (Used as cv2)** 
+We have used the modules
+1.	**opencv-contrib-python (Used as cv2)**
     This is the most important one. It handles the camera and face recognition.
     Just opencv-python does not support the cv2 face recognition. So, we must install the contrib version because our code uses cv2.face.LBPHFaceRecognizer, which is only included in the contrib package.
 2.	**numpy (Used as np)**
@@ -11,7 +11,7 @@ We have used the modules
 4.	**Pillow (Used as PIL)**
     It is used to open and convert images before passing them to the recognizer.
 5. **Tkinter (GUI Interface)**
-   This is used for the GUI interface which can make user easier to use. 
+   This is used for the GUI interface which can make user easier to use.
 
 
 **Installed modules**
@@ -19,7 +19,7 @@ We have used the modules
     pip install opencv-contrib-python
     pip install numpy
     pip install pandas
-    pip install Pillow 
+    pip install Pillow
 
 **Use of Tkinter in our Project**
 In our Attendance System, Tkinter acts as the "Front-End" (the face), while OpenCV acts as the "Back-End" (the brain).
