@@ -150,7 +150,7 @@ def clear2():
 #######################################################################################
 # Captures 100 face samples via webcam, saves them to the training folder, and updates the student database (CSV)
 def TakeImages():
-    print("--- Starting TakeImages Function ---") 
+    print("--- Starting TakeImages Function ---")
     check_haarcascadefile()
     columns = ['SERIAL NO.', '', 'ID', '', 'NAME']
     assure_path_exists("StudentDetails/")
@@ -174,11 +174,11 @@ def TakeImages():
     Id = (txt.get())
     name = (txt2.get())
 
-    print(f"DEBUG: ID entered = '{Id}'")       
-    print(f"DEBUG: Name entered = '{name}'")   
+    print(f"ID entered = '{Id}'")
+    print(f"Name entered = '{name}'")
 
     if ((name.isalpha()) or (' ' in name)):
-        print("DEBUG: Name check passed. Attempting to open camera...") 
+        print("Name check passed. Attempting to open camera...")
 
         cam = cv2.VideoCapture(0)
 
@@ -187,7 +187,10 @@ def TakeImages():
             mess._show(title='Camera Error', message='Could not open camera')
             return
 
+<<<<<<<<< Temporary merge branch 1
+=========
         # UPDATE THIS LINE WITH OUR HARDCODED PATH
+>>>>>>>>> Temporary merge branch 2
         harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
 
         detector = cv2.CascadeClassifier(harcascadePath)
@@ -196,7 +199,7 @@ def TakeImages():
             return
 
         sampleNum = 0
-        print("DEBUG: Loop starting. Please look at the camera.") 
+        print("Loop starting. Please look at the camera.")
 
         while (True):
             ret, img = cam.read()
@@ -223,7 +226,7 @@ def TakeImages():
 
         cam.release()
         cv2.destroyAllWindows()
-        print(f"DEBUG: Process finished. Images taken: {sampleNum}") 
+        print(f"Process finished. Images taken: {sampleNum}")
 
         res = "Images Taken for ID : " + Id
         row = [serial, '', Id, '', name]
@@ -233,7 +236,7 @@ def TakeImages():
         csvFile.close()
         message1.configure(text=res)
     else:
-        print("DEBUG: Name check FAILED. Name must be letters only.") 
+        print("Name check FAILED. Name must be letters only.")
         if (name.isalpha() == False):
             res = "Enter Correct name (Letters only)"
             message.configure(text=res)
@@ -355,6 +358,10 @@ def TrackImages():
 
         cv2.imshow('Taking Attendance', im)
 
+<<<<<<<<< Temporary merge branch 1
+        # ALLOW CLOSING WITH 'X' BUTTON OR 'Q' AFTER TAKING ATTENDANCE
+=========
+>>>>>>>>> Temporary merge branch 2
         if (cv2.waitKey(1) == ord('q')):
             break
         try:
@@ -386,6 +393,8 @@ def TrackImages():
         # Update the table on the screen
         with open("Attendance\\Attendance_" + date + ".csv", 'r') as csvFile1:
             reader1 = csv.reader(csvFile1)
+            i =  0
+
             for lines in reader1:
                 i = i + 1
                 if (i > 1):
