@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import messagebox as mess
 import tkinter.simpledialog as tsd
 import cv2,os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting current working directory (CWD) to the script's folder
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting Current Working Directory (CWD) to the script's folder
 import csv
 import numpy as np
 from PIL import Image
