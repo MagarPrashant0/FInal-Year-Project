@@ -187,10 +187,7 @@ def TakeImages():
             mess._show(title='Camera Error', message='Could not open camera')
             return
 
-<<<<<<<<< Temporary merge branch 1
-=========
-        # UPDATE THIS LINE WITH OUR HARDCODED PATH
->>>>>>>>> Temporary merge branch 2
+
         harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
 
         detector = cv2.CascadeClassifier(harcascadePath)
@@ -358,10 +355,8 @@ def TrackImages():
 
         cv2.imshow('Taking Attendance', im)
 
-<<<<<<<<< Temporary merge branch 1
+
         # ALLOW CLOSING WITH 'X' BUTTON OR 'Q' AFTER TAKING ATTENDANCE
-=========
->>>>>>>>> Temporary merge branch 2
         if (cv2.waitKey(1) == ord('q')):
             break
         try:
