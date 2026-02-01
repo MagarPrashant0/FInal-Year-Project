@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import messagebox as mess
 import tkinter.simpledialog as tsd
 import cv2,os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting current working directory (CWD) to the script's folder
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting Current Working Directory (CWD) to the script's folder
 import csv
 import numpy as np
 from PIL import Image
@@ -149,94 +149,105 @@ def clear2():
 
 #######################################################################################
 # Captures 100 face samples via webcam, saves them to the training folder, and updates the student database (CSV)
-def TakeImages():
-    print("--- Starting TakeImages Function ---")
+def TrackImages():
     check_haarcascadefile()
-    columns = ['SERIAL NO.', '', 'ID', '', 'NAME']
-    assure_path_exists("StudentDetails/")
-    assure_path_exists("TrainingImage/")
-    serial = 0
-    exists = os.path.isfile("StudentDetails\\StudentDetails.csv")
-    if exists:
-        with open("StudentDetails\\StudentDetails.csv", 'r') as csvFile1:
-            reader1 = csv.reader(csvFile1)
-            for l in reader1:
-                serial = serial + 1
-        serial = (serial // 2)
-        csvFile1.close()
+    assure_path_exists("Attendance//")
+    assure_path_exists("StudentDetails//")
+
+    for k in tv.get_children():
+        tv.delete(k)
+
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    exists3 = os.path.isfile("TrainingImageLabel\\Trainner.yml")
+    if exists3:
+        recognizer.read("TrainingImageLabel\\Trainner.yml")
     else:
-        with open("StudentDetails\\StudentDetails.csv", 'a+') as csvFile1:
-            writer = csv.writer(csvFile1)
-            writer.writerow(columns)
-            serial = 1
-        csvFile1.close()
+        mess._show(title='Data Missing', message='Please click on Save Profile to reset data!!')
+        return
 
-    Id = (txt.get())
-    name = (txt2.get())
+    harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
+    faceCascade = cv2.CascadeClassifier(harcascadePath)
 
-    print(f"ID entered = '{Id}'")
-    print(f"Name entered = '{name}'")
+    cam = cv2.VideoCapture(0)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    col_names = ['Id', '', 'Name', '', 'Date', '', 'Time']
 
-    if ((name.isalpha()) or (' ' in name)):
-        print("Name check passed. Attempting to open camera...")
-
-        cam = cv2.VideoCapture(0)
-
-        if not cam.isOpened():
-            print("ERROR: Camera could not open! Try changing VideoCapture(0) to (1)")
-            mess._show(title='Camera Error', message='Could not open camera')
-            return
-
-
-        harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
-
-        detector = cv2.CascadeClassifier(harcascadePath)
-        if detector.empty():
-            print("ERROR: Haarcascade file loaded but is empty/broken!")
-            return
-
-        sampleNum = 0
-        print("Loop starting. Please look at the camera.")
-
-        while (True):
-            ret, img = cam.read()
-            if not ret:
-                print("ERROR: Failed to read frame from camera")
-                break
-
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            faces = detector.detectMultiScale(gray, 1.3, 5)
-
-            for (x, y, w, h) in faces:
-                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                sampleNum = sampleNum + 1
-
-                cv2.imwrite("TrainingImage\\" + name + "." + str(serial) + "." + Id + '.' + str(sampleNum) + ".jpg",
-                            gray[y:y + h, x:x + w])
-                cv2.imshow('Taking Images', img)
-
-            # Wait for 100 miliseconds
-            if cv2.waitKey(100) & 0xFF == ord('q'):
-                break
-            elif sampleNum > 100:
-                break
-
+    exists1 = os.path.isfile("StudentDetails\\StudentDetails.csv")
+    if exists1:
+        df = pd.read_csv("StudentDetails\\StudentDetails.csv")
+    else:
+        mess._show(title='Details Missing', message='Students details are missing!')
         cam.release()
         cv2.destroyAllWindows()
-        print(f"Process finished. Images taken: {sampleNum}")
+        window.destroy()
+        return
 
-        res = "Images Taken for ID : " + Id
-        row = [serial, '', Id, '', name]
-        with open('StudentDetails\\StudentDetails.csv', 'a+') as csvFile:
-            writer = csv.writer(csvFile)
-            writer.writerow(row)
-        csvFile.close()
-        message1.configure(text=res)
-    else:
-        print("Name check FAILED. Name must be letters only.")
-        if (name.isalpha() == False):
-            res = "Enter Correct name (Letters only)"
-            message.configure(text=res)
+    # --- LIST TO PREVENT DUPLICATE ATTENDANCE IN ONE SESSION ---
+    marked_ids = []
+    # -----------------------------------------------------------
+
+    while True:
+        ret, im = cam.read()
+        if not ret: break
+
+        gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        faces = faceCascade.detectMultiScale(gray, 1.2, 5)
+
+        for (x, y, w, h) in faces:
+            cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
+            serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
+
+            if (conf < 50):
+                ts = time.time()
+                date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+                timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                aa = df.loc[df['SERIAL NO.'] == serial]['NAME'].values
+                ID = df.loc[df['SERIAL NO.'] == serial]['ID'].values
+
+                ID = str(ID)
+                ID = ID[1:-1]
+                bb = str(aa)
+                bb = bb[2:-2]
+
+                # SAVE ATTENDANCE IMMEDIATELY FOR MULTIPLE PEOPLE ---
+                # Only mark if this person hasn't been marked in this specific session yet
+                if ID not in marked_ids:
+                    attendance = [str(ID), '', bb, '', str(date), '', str(timeStamp)]
+
+                    # 1. Add to temporary list so we don't spam the CSV
+                    marked_ids.append(ID)
+
+                    # 2. Write to CSV immediately
+                    file_path = "Attendance\\Attendance_" + date + ".csv"
+                    exists = os.path.isfile(file_path)
+
+                    with open(file_path, 'a+') as csvFile1:
+                        writer = csv.writer(csvFile1)
+                        if not exists:
+                            writer.writerow(col_names)
+                        writer.writerow(attendance)
+
+                    # 3. Update the Screen Table immediately
+                    tv.insert('', 0, text=ID, values=(bb, date, timeStamp))
+                # ------------------------------------------------------------
+
+            else:
+                bb = 'Unknown'
+
+            cv2.putText(im, str(bb), (x, y + h), font, 1, (255, 255, 255), 2)
+
+        cv2.imshow('Taking Attendance', im)
+
+        if (cv2.waitKey(1) == ord('q')):
+            break
+        try:
+            if cv2.getWindowProperty('Taking Attendance', 0) < 0:
+                break
+        except:
+            pass
+
+    cam.release()
+    cv2.destroyAllWindows()
 
 ########################################################################################
 # Reads all training images, trains the LBPH algorithm, and saves the model as 'Trainner.yml'
