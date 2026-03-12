@@ -1,4 +1,6 @@
 ############################################# IMPORTING ################################################
+import requests
+import json
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox as mess
@@ -150,13 +152,14 @@ def clear2():
 #######################################################################################
 # Captures 100 face samples via webcam, saves them to the training folder, and updates the student database (CSV)
 def TakeImages():
-    print("--- Starting TakeImages Function ---")
     check_haarcascadefile()
     columns = ['SERIAL NO.', '', 'ID', '', 'NAME']
     assure_path_exists("StudentDetails/")
     assure_path_exists("TrainingImage/")
     serial = 0
     exists = os.path.isfile("StudentDetails\\StudentDetails.csv")
+
+    # Calculate Serial Number
     if exists:
         with open("StudentDetails\\StudentDetails.csv", 'r') as csvFile1:
             reader1 = csv.reader(csvFile1)
@@ -174,35 +177,20 @@ def TakeImages():
     Id = (txt.get())
     name = (txt2.get())
 
-    print(f"ID entered = '{Id}'")
-    print(f"Name entered = '{name}'")
-
     if ((name.isalpha()) or (' ' in name)):
-        print("Name check passed. Attempting to open camera...")
-
         cam = cv2.VideoCapture(0)
 
         if not cam.isOpened():
-            print("ERROR: Camera could not open! Try changing VideoCapture(0) to (1)")
             mess._show(title='Camera Error', message='Could not open camera')
             return
 
-
-        harcascadePath = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
-
+        harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
         detector = cv2.CascadeClassifier(harcascadePath)
-        if detector.empty():
-            print("ERROR: Haarcascade file loaded but is empty/broken!")
-            return
-
         sampleNum = 0
-        print("Loop starting. Please look at the camera.")
 
         while (True):
             ret, img = cam.read()
-            if not ret:
-                print("ERROR: Failed to read frame from camera")
-                break
+            if not ret: break
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             faces = detector.detectMultiScale(gray, 1.3, 5)
@@ -211,11 +199,10 @@ def TakeImages():
                 cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
                 sampleNum = sampleNum + 1
 
-                cv2.imwrite("TrainingImage\\" + name + "." + str(serial) + "." + Id + '.' + str(sampleNum) + ".jpg",
-                            gray[y:y + h, x:x + w])
+                # Save Image: Name.Serial.ID.Count.jpg
+                cv2.imwrite("TrainingImage\\" + name + "." + str(serial) + "." + Id + '.' + str(sampleNum) + ".jpg", gray[y:y + h, x:x + w])
                 cv2.imshow('Taking Images', img)
 
-            # Wait for 100 miliseconds
             if cv2.waitKey(100) & 0xFF == ord('q'):
                 break
             elif sampleNum > 100:
@@ -223,19 +210,30 @@ def TakeImages():
 
         cam.release()
         cv2.destroyAllWindows()
-        print(f"Process finished. Images taken: {sampleNum}")
 
         res = "Images Taken for ID : " + Id
         row = [serial, '', Id, '', name]
+
+        # Save to Local CSV
         with open('StudentDetails\\StudentDetails.csv', 'a+') as csvFile:
             writer = csv.writer(csvFile)
             writer.writerow(row)
         csvFile.close()
+
+        # --- SEND TO DJANGO SERVER ---
+        try:
+            API_URL = "http://127.0.0.1:8000/api/add_student/"
+            payload = {'student_id': Id, 'name': name}
+            requests.post(API_URL, json=payload)
+            print(f"Student {name} synced with Database")
+        except Exception as e:
+            print(f"Server Sync Failed: {e}")
+        # -----------------------------
+
         message1.configure(text=res)
     else:
-        print("Name check FAILED. Name must be letters only.")
         if (name.isalpha() == False):
-            res = "Enter Correct name (Letters only)"
+            res = "Enter Correct name"
             message.configure(text=res)
 
 ########################################################################################
@@ -283,19 +281,22 @@ def getImagesAndLabels(path):
 # Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
     check_haarcascadefile()
-    assure_path_exists("Attendance//")
-    assure_path_exists("StudentDetails//")
-
-    # Clear the table on the screen
     for k in tv.get_children():
         tv.delete(k)
 
+    # 1. Start Session (Mark Everyone Absent)
+    try:
+        START_URL = "http://127.0.0.1:8000/api/start_session/"
+        requests.get(START_URL)
+        print("Session Started: Everyone marked Absent.")
+    except:
+        print("Server offline.")
+
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    exists3 = os.path.isfile("TrainingImageLabel\\Trainner.yml")
-    if exists3:
+    if os.path.isfile("TrainingImageLabel\\Trainner.yml"):
         recognizer.read("TrainingImageLabel\\Trainner.yml")
     else:
-        mess._show(title='Data Missing', message='Please click on Save Profile to reset data!!')
+        mess._show(title='Data Missing', message='Save Profile first!')
         return
 
     harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
@@ -303,20 +304,11 @@ def TrackImages():
 
     cam = cv2.VideoCapture(0)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    col_names = ['Id', '', 'Name', '', 'Date', '', 'Time']
 
-    exists1 = os.path.isfile("StudentDetails\\StudentDetails.csv")
-    if exists1:
-        df = pd.read_csv("StudentDetails\\StudentDetails.csv")
-    else:
-        mess._show(title='Details Missing', message='Students details are missing, please check!')
-        cam.release()
-        cv2.destroyAllWindows()
-        window.destroy()
-        return
+    API_URL = "http://127.0.0.1:8000/api/mark_attendance/"
 
-    # LIST TO STOP DUPLICATE ENTRIES
     marked_ids = []
+    name_cache = {}
 
     while True:
         ret, im = cam.read()
@@ -329,47 +321,49 @@ def TrackImages():
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
 
-            if (conf < 50):
-                ts = time.time()
-                date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
-                timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                aa = df.loc[df['SERIAL NO.'] == serial]['NAME'].values
-                ID = df.loc[df['SERIAL NO.'] == serial]['ID'].values
+            # RELAXED CONFIDENCE
+            if (conf < 85):
+                detected_id = str(serial)
 
-                ID = str(ID)
-                ID = ID[1:-1]
-                bb = str(aa)
-                bb = bb[2:-2]
+                display_name = f"ID:{detected_id}"
+                if detected_id in name_cache:
+                    display_name = name_cache[detected_id]
 
-                # MULTIPLE ATTENDANCE LOGIC STARTS
-                # Only save if we haven't seen this ID in this session yet
-                if ID not in marked_ids:
-                    attendance = [str(ID), '', bb, '', str(date), '', str(timeStamp)]
+                if detected_id not in marked_ids:
+                    # --- DEBUGGING PRINT ---
+                    print(f"Detecting ID: {detected_id}... Sending to Server...")
 
-                    # 1. Add to list so we don't save them again instantly
-                    marked_ids.append(ID)
+                    try:
+                        payload = {'student_id': detected_id}
+                        response = requests.post(API_URL, json=payload)
 
-                    # 2. Save to CSV immediately
-                    file_path = "Attendance\\Attendance_" + date + ".csv"
-                    exists = os.path.isfile(file_path)
+                        print(f"Server Reply: {response.text}")  # <--- CHECK THIS LINE IN TERMINAL
 
-                    with open(file_path, 'a+') as csvFile1:
-                        writer = csv.writer(csvFile1)
-                        if not exists:
-                            writer.writerow(col_names)
-                        writer.writerow(attendance)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data['status'] == 'success':
+                                actual_name = data['name']
 
-                    # 3. Update the Table on Screen immediately
-                    tv.insert('', 0, text=ID, values=(bb, date, timeStamp))
+                                ts = time.time()
+                                timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                                tv.insert('', 0, text=detected_id, values=(actual_name, "Today", timeStamp))
 
+                                marked_ids.append(detected_id)
+                                name_cache[detected_id] = actual_name
+                                display_name = actual_name
+
+                                print(f"MARKED PRESENT: {actual_name}")
+                            else:
+                                print(f"Server Error: {data['message']}")
+                    except Exception as e:
+                        print(f"Connection Failed: {e}")
+
+                cv2.putText(im, display_name, (x, y + h), font, 1, (255, 255, 255), 2)
             else:
-                bb = 'Unknown'
-
-            cv2.putText(im, str(bb), (x, y + h), font, 1, (255, 255, 255), 2)
+                cv2.putText(im, "Unknown", (x, y + h), font, 1, (255, 255, 255), 2)
 
         cv2.imshow('Taking Attendance', im)
 
-        # CHECK FOR CLOSING
         if (cv2.waitKey(1) == ord('q')):
             break
         try:
