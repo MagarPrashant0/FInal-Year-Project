@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.http import HttpResponse
+from Backend_Server.core import views
 from core.views import mark_attendance_api, add_student_api, start_session_api, trigger_absence_check
 
 # Simple homepage view
@@ -30,4 +31,5 @@ urlpatterns = [
     path('api/start_session/', start_session_api), # This handles the empty homepage
     path('api/add_student/', add_student_api),
     path('api/run_email_check/', trigger_absence_check),
+    path('api/get_student_count/', views.get_student_count),
 ]

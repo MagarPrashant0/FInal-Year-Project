@@ -67,3 +67,11 @@ def trigger_absence_check(request):
         return JsonResponse({'status': 'success', 'message': 'Email check completed.'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
+
+def get_student_count(request):
+    try:
+        # Count total students in the PostgreSQL table
+        count = Student.objects.count()
+        return JsonResponse({'status': 'success', 'count': count})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})

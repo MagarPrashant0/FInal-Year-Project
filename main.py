@@ -6,13 +6,13 @@ from tkinter import ttk
 from tkinter import messagebox as mess
 import tkinter.simpledialog as tsd
 import cv2,os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting Current Working Directory (CWD) to the script's folder
 import csv
 import numpy as np
 from PIL import Image
 import pandas as pd
 import datetime
 import time
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Ensure relative paths work by setting Current Working Directory (CWD) to the script's folder
 
 ############################################# FUNCTIONS ################################################
 # Creates the directory for a given file path if it doesn't already exist
@@ -21,33 +21,49 @@ def assure_path_exists(path):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
-##################################################################################
 # Updates the clock label with the current time every 200ms
 def tick():
     time_string = time.strftime('%H:%M:%S')
     clock.config(text=time_string)
-    clock.after(200,tick)
+    clock.after(200, tick)
 
-###################################################################################
 # Opens a popup window displaying contact information
 def contact():
     mess._show(title='Contact us', message="Please contact us on : 'alemagar523@gmail.com' ")
 
-###################################################################################
-# Verifies that the Haarcascade file exists; closes the app if missing
+# Verifies that the Haarcascade file exists in the current folder
 def check_haarcascadefile():
-    path = r"D:\Python\Project\FACE RECOGNITION BASED ATTENDANCE MONITORING SYSTEM\haarcascade_frontalface_default.xml"
-
+    # Changed from hardcoded D:\ drive to relative path for portability
+    path = "haarcascade_frontalface_default.xml"
     exists = os.path.isfile(path)
-
     if exists:
         pass
     else:
-        mess._show(title='File Missing', message='The haarcascade file is missing! Please check the folder.')
+        mess._show(title='File Missing', message='The haarcascade file (haarcascade_frontalface_default.xml) is missing from the project folder!')
         window.destroy()
         return
 
-###################################################################################
+######################################### CLEAR FUNCTIONS ############################################
+
+# Clears ID box
+def clear():
+    txt.delete(0, 'end')
+    res = "1)Take Images  >>>  2)Save Profile"
+    message1.configure(text=res)
+
+# Clears Name box
+def clear2():
+    txt2.delete(0, 'end')
+    res = "1)Take Images  >>>  2)Save Profile"
+    message1.configure(text=res)
+
+# Clears Email box (NEW)
+def clear3():
+    txt_email.delete(0, 'end')
+    res = "1)Take Images  >>>  2)Save Profile"
+    message1.configure(text=res)
+
+######################################### PASSWORD SYSTEM ############################################
 
 def save_pass():
     assure_path_exists("TrainingImageLabel/")
@@ -81,8 +97,6 @@ def save_pass():
     mess._show(title='Password Changed', message='Password changed successfully!!')
     master.destroy()
 
-###################################################################################
-# Validates user input to change the admin password, or creates a new one if none exists
 def change_pass():
     global master
     master = tk.Tk()
@@ -90,29 +104,31 @@ def change_pass():
     master.resizable(False,False)
     master.title("Change Password")
     master.configure(background="white")
+
     lbl4 = tk.Label(master,text='    Enter Old Password',bg='white',font=('times', 12, ' bold '))
     lbl4.place(x=10,y=10)
     global old
     old=tk.Entry(master,width=25 ,fg="black",relief='solid',font=('times', 12, ' bold '),show='*')
     old.place(x=180,y=10)
+
     lbl5 = tk.Label(master, text='   Enter New Password', bg='white', font=('times', 12, ' bold '))
     lbl5.place(x=10, y=45)
     global new
     new = tk.Entry(master, width=25, fg="black",relief='solid', font=('times', 12, ' bold '),show='*')
     new.place(x=180, y=45)
+
     lbl6 = tk.Label(master, text='Confirm New Password', bg='white', font=('times', 12, ' bold '))
     lbl6.place(x=10, y=80)
     global nnew
     nnew = tk.Entry(master, width=25, fg="black", relief='solid',font=('times', 12, ' bold '),show='*')
     nnew.place(x=180, y=80)
+
     cancel=tk.Button(master,text="Cancel", command=master.destroy ,fg="black"  ,bg="red" ,height=1,width=25 , activebackground = "white" ,font=('times', 10, ' bold '))
     cancel.place(x=200, y=120)
     save1 = tk.Button(master, text="Save", command=save_pass, fg="black", bg="#3ece48", height = 1,width=25, activebackground="white", font=('times', 10, ' bold '))
     save1.place(x=10, y=120)
     master.mainloop()
 
-#####################################################################################
-# Asks for admin password; if correct, runs the TrainImages() function
 def psw():
     assure_path_exists("TrainingImageLabel/")
     exists1 = os.path.isfile("TrainingImageLabel\\psd.txt")
@@ -136,105 +152,113 @@ def psw():
     else:
         mess._show(title='Wrong Password', message='You have entered wrong password')
 
-######################################################################################
-# Clears the first input box (ID) and resets the status message
-def clear():
-    txt.delete(0, 'end')
-    res = "1)Take Images  >>>  2)Save Profile"
-    message1.configure(text=res)
-
-# Clears the second input box (Name) and resets the status message
-def clear2():
-    txt2.delete(0, 'end')
-    res = "1)Take Images  >>>  2)Save Profile"
-    message1.configure(text=res)
+def update_registration_count():
+    global message
+    try:
+        # Request the latest count from your Django PostgreSQL database
+        response = requests.get("http://127.0.0.1:8000/api/get_student_count/")
+        if response.status_code == 200:
+            count = response.json().get('count', 0)
+            message.configure(text='Total Registrations till now : ' + str(count))
+        else:
+            message.configure(text='Total Registrations till now : Error')
+    except Exception as e:
+        # If the server is offline, fallback to the local CSV count
+        print(f"Server Offline: {e}")
+        res = 0
+        if os.path.isfile("StudentDetails\\StudentDetails.csv"):
+            with open("StudentDetails\\StudentDetails.csv", 'r') as f:
+                res = sum(1 for row in csv.reader(f))
+            res = (res // 2) - 1
+        message.configure(text='Total Registrations till now : ' + str(max(0, res)))
 
 #######################################################################################
 # Captures 100 face samples via webcam, saves them to the training folder, and updates the student database (CSV)
 def TakeImages():
     check_haarcascadefile()
-    columns = ['SERIAL NO.', '', 'ID', '', 'NAME']
-    assure_path_exists("StudentDetails/")
-    assure_path_exists("TrainingImage/")
-    serial = 0
-    exists = os.path.isfile("StudentDetails\\StudentDetails.csv")
 
-    # Calculate Serial Number
-    if exists:
-        with open("StudentDetails\\StudentDetails.csv", 'r') as csvFile1:
-            reader1 = csv.reader(csvFile1)
-            for l in reader1:
-                serial = serial + 1
-        serial = (serial // 2)
-        csvFile1.close()
-    else:
-        with open("StudentDetails\\StudentDetails.csv", 'a+') as csvFile1:
-            writer = csv.writer(csvFile1)
-            writer.writerow(columns)
-            serial = 1
-        csvFile1.close()
+    # 1. Get Data from the GUI Entry boxes
+    Id = txt.get()
+    name = txt2.get()
+    email = txt_email.get() # The new email field
 
-    Id = (txt.get())
-    name = (txt2.get())
+    # 2. Basic Validation
+    if not Id or not name or not email:
+        mess._show(title='Missing Data', message='Please enter ID, Name, and Email!')
+        return
 
-    if ((name.isalpha()) or (' ' in name)):
+    # Check if name is valid (alphabetical)
+    if (name.replace(' ', '').isalpha()):
+        assure_path_exists("TrainingImage/")
+        assure_path_exists("StudentDetails/")
+
+        # 3. Setup Camera
         cam = cv2.VideoCapture(0)
-
-        if not cam.isOpened():
-            mess._show(title='Camera Error', message='Could not open camera')
-            return
-
-        harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
+        harcascadePath = "haarcascade_frontalface_default.xml"
         detector = cv2.CascadeClassifier(harcascadePath)
         sampleNum = 0
 
-        while (True):
+        # Calculate a local serial number for the filename
+        serial = 0
+        exists = os.path.isfile("StudentDetails\\StudentDetails.csv")
+        if exists:
+            with open("StudentDetails\\StudentDetails.csv", 'r') as f:
+                serial = sum(1 for line in f) // 2
+        else:
+            serial = 1
+
+        # 4. Capture 100 Face Samples
+        while True:
             ret, img = cam.read()
             if not ret: break
-
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             faces = detector.detectMultiScale(gray, 1.3, 5)
 
             for (x, y, w, h) in faces:
                 cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                sampleNum = sampleNum + 1
-
-                # Save Image: Name.Serial.ID.Count.jpg
-                cv2.imwrite("TrainingImage\\" + name + "." + str(serial) + "." + Id + '.' + str(sampleNum) + ".jpg", gray[y:y + h, x:x + w])
+                sampleNum += 1
+                # Save the captured image in the TrainingImage folder
+                cv2.imwrite(f"TrainingImage\\{name}.{serial}.{Id}.{sampleNum}.jpg", gray[y:y + h, x:x + w])
                 cv2.imshow('Taking Images', img)
 
-            if cv2.waitKey(100) & 0xFF == ord('q'):
-                break
-            elif sampleNum > 100:
+            if cv2.waitKey(100) & 0xFF == ord('q') or sampleNum > 100:
                 break
 
         cam.release()
         cv2.destroyAllWindows()
 
-        res = "Images Taken for ID : " + Id
-        row = [serial, '', Id, '', name]
+        # 5. SYNC WITH DJANGO BACKEND
+        try:
+            API_URL = "http://127.0.0.1:8000/api/add_student/"
+            payload = {
+                'student_id': Id,
+                'name': name,
+                'email': email
+            }
+            # Send the data to PostgreSQL via Django
+            response = requests.post(API_URL, json=payload)
 
-        # Save to Local CSV
+            if response.status_code == 200:
+                print(f"Student {name} successfully synced to Database.")
+            else:
+                print("Failed to sync with server.")
+        except Exception as e:
+            print(f"Server Connection Error: {e}")
+
+        # 6. SAVE LOCALLY TO CSV (Fallback/Backup)
+        row = [serial, '', Id, '', name]
         with open('StudentDetails\\StudentDetails.csv', 'a+') as csvFile:
             writer = csv.writer(csvFile)
             writer.writerow(row)
-        csvFile.close()
 
-        # --- SEND TO DJANGO SERVER ---
-        try:
-            API_URL = "http://127.0.0.1:8000/api/add_student/"
-            payload = {'student_id': Id, 'name': name}
-            requests.post(API_URL, json=payload)
-            print(f"Student {name} synced with Database")
-        except Exception as e:
-            print(f"Server Sync Failed: {e}")
-        # -----------------------------
+        # 7. UPDATE THE UI COUNTER
+        # This calls the function we wrote above to refresh the "Total Registrations" label
+        update_registration_count()
 
-        message1.configure(text=res)
+        message1.configure(text=f"Images Saved for ID: {Id}")
+
     else:
-        if (name.isalpha() == False):
-            res = "Enter Correct name"
-            message.configure(text=res)
+        mess._show(title='Invalid Name', message='Please enter a valid alphabetical name.')
 
 ########################################################################################
 # Reads all training images, trains the LBPH algorithm, and saves the model as 'Trainner.yml'
@@ -242,19 +266,25 @@ def TrainImages():
     check_haarcascadefile()
     assure_path_exists("TrainingImageLabel/")
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
-    detector = cv2.CascadeClassifier(harcascadePath)
-    faces, ID = getImagesAndLabels("TrainingImage")
-    try:
-        recognizer.train(faces, np.array(ID))
-    except:
-        mess._show(title='No Registrations', message='Please Register someone first!!!')
-        return
-    recognizer.save("TrainingImageLabel\\Trainner.yml")
-    res = "Profile Saved Successfully"
-    message1.configure(text=res)
-    message.configure(text='Total Registrations till now  : ' + str(ID[0]))
 
+    path = "TrainingImage"
+    imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
+    faces, Ids = [], []
+
+    for imagePath in imagePaths:
+        pilImage = Image.open(imagePath).convert('L')
+        imageNp = np.array(pilImage, 'uint8')
+        ID = int(os.path.split(imagePath)[-1].split(".")[1])
+        faces.append(imageNp)
+        Ids.append(ID)
+
+    if not faces:
+        mess._show(title='No Data', message='Register someone first!')
+        return
+
+    recognizer.train(faces, np.array(Ids))
+    recognizer.save("TrainingImageLabel/Trainner.yml")
+    message1.configure(text="Profile Saved Successfully")
 ############################################################################################3
 
 def getImagesAndLabels(path):
@@ -281,99 +311,58 @@ def getImagesAndLabels(path):
 # Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
     check_haarcascadefile()
-    for k in tv.get_children():
-        tv.delete(k)
+    for k in tv.get_children(): tv.delete(k)
 
-    # 1. Start Session (Mark Everyone Absent)
-    try:
-        START_URL = "http://127.0.0.1:8000/api/start_session/"
-        requests.get(START_URL)
-        print("Session Started: Everyone marked Absent.")
-    except:
-        print("Server offline.")
+    # Start Session API
+    try: requests.get("http://127.0.0.1:8000/api/start_session/")
+    except: print("Server offline")
 
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    if os.path.isfile("TrainingImageLabel\\Trainner.yml"):
-        recognizer.read("TrainingImageLabel\\Trainner.yml")
-    else:
-        mess._show(title='Data Missing', message='Save Profile first!')
+    if not os.path.isfile("TrainingImageLabel/Trainner.yml"):
+        mess._show(title='Missing Data', message='Please Train Profile first!')
         return
 
-    harcascadePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "haarcascade_frontalface_default.xml")
-    faceCascade = cv2.CascadeClassifier(harcascadePath)
-
+    recognizer.read("TrainingImageLabel/Trainner.yml")
+    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
     cam = cv2.VideoCapture(0)
     font = cv2.FONT_HERSHEY_SIMPLEX
-
-    API_URL = "http://127.0.0.1:8000/api/mark_attendance/"
-
     marked_ids = []
-    name_cache = {}
 
     while True:
         ret, im = cam.read()
-        if not ret: break
-
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         faces = faceCascade.detectMultiScale(gray, 1.2, 5)
-
         for (x, y, w, h) in faces:
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
-
-            # RELAXED CONFIDENCE
-            if (conf < 85):
+            if conf < 85:
                 detected_id = str(serial)
-
-                display_name = f"ID:{detected_id}"
-                if detected_id in name_cache:
-                    display_name = name_cache[detected_id]
-
                 if detected_id not in marked_ids:
-                    # --- DEBUGGING PRINT ---
-                    print(f"Detecting ID: {detected_id}... Sending to Server...")
-
                     try:
-                        payload = {'student_id': detected_id}
-                        response = requests.post(API_URL, json=payload)
-
-                        print(f"Server Reply: {response.text}")  # <--- CHECK THIS LINE IN TERMINAL
-
-                        if response.status_code == 200:
-                            data = response.json()
-                            if data['status'] == 'success':
-                                actual_name = data['name']
-
-                                ts = time.time()
-                                timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                                tv.insert('', 0, text=detected_id, values=(actual_name, "Today", timeStamp))
-
-                                marked_ids.append(detected_id)
-                                name_cache[detected_id] = actual_name
-                                display_name = actual_name
-
-                                print(f"MARKED PRESENT: {actual_name}")
-                            else:
-                                print(f"Server Error: {data['message']}")
-                    except Exception as e:
-                        print(f"Connection Failed: {e}")
-
-                cv2.putText(im, display_name, (x, y + h), font, 1, (255, 255, 255), 2)
+                        res = requests.post("http://127.0.0.1:8000/api/mark_attendance/", json={'student_id': detected_id})
+                        if res.status_code == 200:
+                            data = res.json()
+                            actual_name = data['name']
+                            tv.insert('', 0, text=detected_id, values=(actual_name, "Today", time.strftime('%H:%M:%S')))
+                            marked_ids.append(detected_id)
+                            cv2.putText(im, actual_name, (x, y + h), font, 1, (255, 255, 255), 2)
+                    except: pass
             else:
                 cv2.putText(im, "Unknown", (x, y + h), font, 1, (255, 255, 255), 2)
 
-        cv2.imshow('Taking Attendance', im)
-
-        if (cv2.waitKey(1) == ord('q')):
-            break
-        try:
-            if cv2.getWindowProperty('Taking Attendance', 0) < 0:
-                break
-        except:
-            pass
+        cv2.imshow('Attendance System', im)
+        if cv2.waitKey(1) == ord('q'): break
 
     cam.release()
     cv2.destroyAllWindows()
+
+    # --- EMAIL AUTOMATION TRIGGER ---
+    print("Triggering Absence Check...")
+    try:
+        requests.get("http://127.0.0.1:8000/api/run_email_check/")
+        print("Emails Processed.")
+    except:
+        print("Could not reach email server.")
 
 ######################################## USED STUFFS ############################################
 # Initialize global variables and setup date formatting (Number to Month Name)
@@ -402,71 +391,65 @@ mont={'01':'January',
 # Sets up the main GUI window, defines layout frames (Left/Right), input fields, and calculates total registered users on startup
 window = tk.Tk()
 window.geometry("1280x720")
-window.resizable(True,False)
+window.resizable(False, False)
 window.title("Attendance System")
 window.configure(background='#262523')
 
+# Frames
 frame1 = tk.Frame(window, bg="#00aeff")
 frame1.place(relx=0.11, rely=0.17, relwidth=0.39, relheight=0.80)
 
 frame2 = tk.Frame(window, bg="#00aeff")
 frame2.place(relx=0.51, rely=0.17, relwidth=0.38, relheight=0.80)
 
-message3 = tk.Label(window, text="Face Recognition Based Attendance System" ,fg="white",bg="#262523" ,width=55 ,height=1,font=('times', 29, ' bold '))
-message3.place(x=10, y=10)
+# Labels
+tk.Label(window, text="Face Recognition Based Attendance System", fg="white", bg="#262523", font=('times', 29, ' bold ')).place(x=10, y=10)
+tk.Label(frame1, text="--- For Already Registered ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).place(x=100, y=0)
+tk.Label(frame2, text="--- For New Registrations ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).grid(row=100, column=0)
 
-frame3 = tk.Frame(window, bg="#c4c6ce")
-frame3.place(relx=0.52, rely=0.09, relwidth=0.09, relheight=0.07)
+# Registration Inputs (Adjusted Y for no overlap)
+tk.Label(frame2, text="Enter ID", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=45)
+txt = tk.Entry(frame2, width=32, font=('times', 15))
+txt.place(x=30, y=75)
 
-frame4 = tk.Frame(window, bg="#c4c6ce")
-frame4.place(relx=0.36, rely=0.09, relwidth=0.16, relheight=0.07)
+tk.Label(frame2, text="Enter Name", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=120)
+txt2 = tk.Entry(frame2, width=32, font=('times', 15))
+txt2.place(x=30, y=150)
 
-datef = tk.Label(frame4, text = day+"-"+mont[month]+"-"+year+"  |  ", fg="orange",bg="#262523" ,width=55 ,height=1,font=('times', 22, ' bold '))
-datef.pack(fill='both',expand=1)
+tk.Label(frame2, text="Enter Email", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=195)
+txt_email = tk.Entry(frame2, width=32, font=('times', 15))
+txt_email.place(x=30, y=225)
 
-clock = tk.Label(frame3,fg="orange",bg="#262523" ,width=55 ,height=1,font=('times', 22, ' bold '))
-clock.pack(fill='both',expand=1)
+# Clear Buttons
+tk.Button(frame2, text="Clear", command=clear, bg="#ea2a2a", width=11).place(x=335, y=73)
+tk.Button(frame2, text="Clear", command=clear2, bg="#ea2a2a", width=11).place(x=335, y=148)
+tk.Button(frame2, text="Clear", command=clear3, bg="#ea2a2a", width=11).place(x=335, y=223)
+
+# Action Buttons
+message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="#00aeff", font=('times', 15, ' bold '))
+message1.place(x=7, y=280)
+
+tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=325)
+tk.Button(frame2, text="Save Profile", command=TrainImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=395)
+
+# Attendance Table (Left Frame)
+tk.Button(frame1, text="Take Attendance", command=TrackImages, bg="yellow", width=35, font=('times', 15, ' bold ')).place(x=30, y=50)
+
+tv = ttk.Treeview(frame1, height=13, columns=('name', 'date', 'time'))
+tv.column('#0', width=82); tv.column('name', width=130); tv.column('date', width=133); tv.column('time', width=133)
+tv.heading('#0', text='ID'); tv.heading('name', text='NAME'); tv.heading('date', text='DATE'); tv.heading('time', text='TIME')
+tv.place(x=10, y=150)
+
+# Clock/Date
+frame3 = tk.Frame(window, bg="#262523"); frame3.place(relx=0.52, rely=0.09, relwidth=0.09, relheight=0.07)
+clock = tk.Label(frame3, fg="orange", bg="#262523", font=('times', 22, ' bold '))
+clock.pack()
 tick()
 
-head2 = tk.Label(frame2, text="                       For New Registrations                       ", fg="black",bg="#3ece48" ,font=('times', 17, ' bold ') )
-head2.grid(row=0,column=0)
+tk.Button(frame1, text="Quit", command=window.destroy, bg="red", width=35, font=('times', 15, ' bold ')).place(x=30, y=450)
 
-head1 = tk.Label(frame1, text="                       For Already Registered                       ", fg="black",bg="#3ece48" ,font=('times', 17, ' bold ') )
-head1.place(x=0,y=0)
+window.mainloop()
 
-lbl = tk.Label(frame2, text="Enter ID",width=20  ,height=1  ,fg="black"  ,bg="#00aeff" ,font=('times', 17, ' bold ') )
-lbl.place(x=80, y=55)
-
-txt = tk.Entry(frame2,width=32 ,fg="black",font=('times', 15, ' bold '))
-txt.place(x=30, y=88)
-
-lbl2 = tk.Label(frame2, text="Enter Name",width=20  ,fg="black"  ,bg="#00aeff" ,font=('times', 17, ' bold '))
-lbl2.place(x=80, y=140)
-
-txt2 = tk.Entry(frame2,width=32 ,fg="black",font=('times', 15, ' bold ')  )
-txt2.place(x=30, y=173)
-
-message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile" ,bg="#00aeff" ,fg="black"  ,width=39 ,height=1, activebackground = "yellow" ,font=('times', 15, ' bold '))
-message1.place(x=7, y=230)
-
-message = tk.Label(frame2, text="" ,bg="#00aeff" ,fg="black"  ,width=39,height=1, activebackground = "yellow" ,font=('times', 16, ' bold '))
-message.place(x=7, y=450)
-
-lbl3 = tk.Label(frame1, text="Attendance",width=20  ,fg="black"  ,bg="#00aeff"  ,height=1 ,font=('times', 17, ' bold '))
-lbl3.place(x=100, y=115)
-
-res=0
-exists = os.path.isfile("StudentDetails\\StudentDetails.csv")
-if exists:
-    with open("StudentDetails\\StudentDetails.csv", 'r') as csvFile1:
-        reader1 = csv.reader(csvFile1)
-        for l in reader1:
-            res = res + 1
-    res = (res // 2) - 1
-    csvFile1.close()
-else:
-    res = 0
-message.configure(text='Total Registrations till now  : '+str(res))
 
 ##################### MENUBAR #################################
 
@@ -514,6 +497,7 @@ quitWindow.place(x=30, y=450)
 ##################### END ######################################
 
 window.configure(menu=menubar)
+update_registration_count()
 window.mainloop()
 
 ####################################################################################################
