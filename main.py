@@ -405,7 +405,7 @@ frame2.place(relx=0.51, rely=0.17, relwidth=0.38, relheight=0.80)
 # Labels
 tk.Label(window, text="Face Recognition Based Attendance System", fg="white", bg="#262523", font=('times', 29, ' bold ')).place(x=10, y=10)
 tk.Label(frame1, text="--- For Already Registered ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).place(x=100, y=0)
-tk.Label(frame2, text="--- For New Registrations ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).grid(row=100, column=0)
+tk.Label(frame2, text="--- For New Registrations ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).place(x=100, y=0)
 
 # Registration Inputs (Adjusted Y for no overlap)
 tk.Label(frame2, text="Enter ID", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=45)

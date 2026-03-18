@@ -13,11 +13,19 @@ def add_student_api(request):
         data = json.loads(request.body)
         student_id = data.get('student_id')
         name = data.get('name')
+        email = data.get('email')  # Catch the email from the app
 
-        obj, created = Student.objects.get_or_create(student_id=student_id, defaults={'name': name})
+        #  Add email to the defaults
+        obj, created = Student.objects.get_or_create(
+            student_id=student_id,
+            defaults={'name': name, 'email': email}
+        )
+
         if not created:
             obj.name = name
+            obj.email = email  #pdate email if student already exists
             obj.save()
+
         return JsonResponse({'status': 'success'})
 
 @csrf_exempt
