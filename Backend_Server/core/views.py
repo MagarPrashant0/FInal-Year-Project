@@ -23,7 +23,7 @@ def add_student_api(request):
 
         if not created:
             obj.name = name
-            obj.email = email  #pdate email if student already exists
+            obj.email = email #Update email if student already exists
             obj.save()
 
         return JsonResponse({'status': 'success'})

@@ -43,6 +43,9 @@ def check_haarcascadefile():
         window.destroy()
         return
 
+def on_closing():
+    if mess.askokcancel("Quit", "Do you want to quit?"):
+        window.destroy()
 ######################################### CLEAR FUNCTIONS ############################################
 
 # Clears ID box
@@ -129,24 +132,60 @@ def change_pass():
     save1.place(x=10, y=120)
     master.mainloop()
 
+# Function for "Save Profile" button
 def psw():
     assure_path_exists("TrainingImageLabel/")
     exists1 = os.path.isfile("TrainingImageLabel\\psd.txt")
+
+    # 1. Get the key or create a new one if it's the first time
     if exists1:
-        tf = open("TrainingImageLabel\\psd.txt", "r")
-        key = tf.read()
+        with open("TrainingImageLabel\\psd.txt", "r") as tf:
+            key = tf.read()
     else:
-        new_pas = tsd.askstring('Old Password not found', 'Please enter a new password below', show='*')
+        new_pas = tsd.askstring('Password Not Found', 'Please enter a new admin password', show='*')
         if new_pas == None:
             mess._show(title='No Password Entered', message='Password not set!! Please try again')
-        else:
-            tf = open("TrainingImageLabel\\psd.txt", "w")
-            tf.write(new_pas)
-            mess._show(title='Password Registered', message='New password was registered successfully!!')
             return
-    password = tsd.askstring('Password', 'Enter Password', show='*')
+        else:
+            with open("TrainingImageLabel\\psd.txt", "w") as tf:
+                tf.write(new_pas)
+            mess._show(title='Password Registered', message='New password registered successfully!!')
+            return
+
+    # 2. Ask for password before Training
+    password = tsd.askstring('Password Required', 'Enter Admin Password', show='*')
     if (password == key):
-        TrainImages()
+        TrainImages()  # Start the training process
+    elif (password == None):
+        pass
+    else:
+        mess._show(title='Wrong Password', message='You have entered wrong password')
+
+
+# Function for "Take Images" button
+def psw_take():
+    assure_path_exists("TrainingImageLabel/")
+    exists1 = os.path.isfile("TrainingImageLabel\\psd.txt")
+
+    # 1. Get the key or create a new one if it's the first time
+    if exists1:
+        with open("TrainingImageLabel\\psd.txt", "r") as tf:
+            key = tf.read()
+    else:
+        new_pas = tsd.askstring('Password Not Found', 'Please enter a new admin password', show='*')
+        if new_pas == None:
+            mess._show(title='No Password Entered', message='Password not set!! Please try again')
+            return
+        else:
+            with open("TrainingImageLabel\\psd.txt", "w") as tf:
+                tf.write(new_pas)
+            mess._show(title='Password Registered', message='New password registered successfully!!')
+            return
+
+    # 2. Ask for password before Camera opens
+    password = tsd.askstring('Password Required', 'Enter Password to Register Student', show='*')
+    if (password == key):
+        TakeImages()  # Start the image capture process
     elif (password == None):
         pass
     else:
@@ -310,59 +349,109 @@ def getImagesAndLabels(path):
 ###########################################################################################
 # Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
+    # 1. Clear the table on the left before starting
     check_haarcascadefile()
-    for k in tv.get_children(): tv.delete(k)
+    for k in tv.get_children():
+        tv.delete(k)
 
-    # Start Session API
-    try: requests.get("http://127.0.0.1:8000/api/start_session/")
-    except: print("Server offline")
+    # 2. Tell Django to start a new session (Mark everyone absent for today)
+    try:
+        requests.get("http://127.0.0.1:8000/api/start_session/")
+        print("Session Started: All students marked absent initially.")
+    except:
+        print("Backend Server is offline. Attendance will not be saved to Database.")
 
+    # 3. Load the Face Recognizer
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    if not os.path.isfile("TrainingImageLabel/Trainner.yml"):
-        mess._show(title='Missing Data', message='Please Train Profile first!')
+    if os.path.isfile("TrainingImageLabel\\Trainner.yml"):
+        recognizer.read("TrainingImageLabel\\Trainner.yml")
+    else:
+        mess._show(title='Data Missing', message='Please click "Save Profile" to train the system first!')
         return
 
-    recognizer.read("TrainingImageLabel/Trainner.yml")
-    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    # 4. Initialize Camera and Font
+    harcascadePath = "haarcascade_frontalface_default.xml"
+    faceCascade = cv2.CascadeClassifier(harcascadePath)
     cam = cv2.VideoCapture(0)
     font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # These lists keep track of who we already recognized in THIS session
     marked_ids = []
+    id_to_name = {}
 
     while True:
         ret, im = cam.read()
+        if not ret: break
+
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         faces = faceCascade.detectMultiScale(gray, 1.2, 5)
+
         for (x, y, w, h) in faces:
+            # Draw the box around the face
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
+
+            # Predict the ID
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
+
+            # Check if the match is good (Confidence < 85 is usually a good match)
             if conf < 85:
                 detected_id = str(serial)
+
+                # --- STEP A: If it's a NEW recognition, sync with Django ---
                 if detected_id not in marked_ids:
                     try:
-                        res = requests.post("http://127.0.0.1:8000/api/mark_attendance/", json={'student_id': detected_id})
-                        if res.status_code == 200:
-                            data = res.json()
-                            actual_name = data['name']
-                            tv.insert('', 0, text=detected_id, values=(actual_name, "Today", time.strftime('%H:%M:%S')))
+                        API_URL = "http://127.0.0.1:8000/api/mark_attendance/"
+                        response = requests.post(API_URL, json={'student_id': detected_id})
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            actual_name = data.get('name', 'Unknown')
+
+                            # Save name in memory so we can show it on the screen
+                            id_to_name[detected_id] = actual_name
+
+                            # Add to the UI Table on the left
+                            ts = time.time()
+                            timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                            tv.insert('', 0, text=detected_id, values=(actual_name, "Today", timeStamp))
+
+                            # Add to marked list so we don't spam the server
                             marked_ids.append(detected_id)
-                            cv2.putText(im, actual_name, (x, y + h), font, 1, (255, 255, 255), 2)
-                    except: pass
+                    except Exception as e:
+                        print(f"Error syncing attendance for ID {detected_id}: {e}")
+                        id_to_name[detected_id] = f"ID: {detected_id}"
+
+                # --- STEP B: Show the Name on the Video Feed ---
+                # Get the name from our dictionary (memory)
+                display_name = id_to_name.get(detected_id, "Processing...")
+                cv2.putText(im, display_name, (x, y + h + 30), font, 1, (255, 255, 255), 2)
+
             else:
-                cv2.putText(im, "Unknown", (x, y + h), font, 1, (255, 255, 255), 2)
+                # If confidence is bad, show "Unknown" in Red
+                cv2.putText(im, "Unknown", (x, y + h + 30), font, 1, (0, 0, 255), 2)
 
-        cv2.imshow('Attendance System', im)
-        if cv2.waitKey(1) == ord('q'): break
+        # Show the camera window
+        cv2.imshow('Attendance System - Press Q to Quit', im)
 
+        # Break loop if 'q' is pressed
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    # 5. Cleanup
     cam.release()
     cv2.destroyAllWindows()
 
-    # --- EMAIL AUTOMATION TRIGGER ---
-    print("Triggering Absence Check...")
+    # 6. TRIGGER THE AUTOMATED EMAIL CHECK
+    # This calls the Django script to check for 3-day absences
+    print("Camera closed. Checking for 3-day absences and sending emails...")
     try:
-        requests.get("http://127.0.0.1:8000/api/run_email_check/")
-        print("Emails Processed.")
+        email_res = requests.get("http://127.0.0.1:8000/api/run_email_check/")
+        if email_res.status_code == 200:
+            print("Server Response:", email_res.json().get('message'))
+        else:
+            print("Server encountered an error while processing emails.")
     except:
-        print("Could not reach email server.")
+        print("Backend server unreachable for email processing.")
 
 ######################################## USED STUFFS ############################################
 # Initialize global variables and setup date formatting (Number to Month Name)
@@ -409,15 +498,15 @@ tk.Label(frame2, text="--- For New Registrations ---", fg="black", bg="#3ece48",
 
 # Registration Inputs (Adjusted Y for no overlap)
 tk.Label(frame2, text="Enter ID", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=45)
-txt = tk.Entry(frame2, width=32, font=('times', 15))
+txt = tk.Entry(frame2, width=28, font=('times', 15))
 txt.place(x=30, y=75)
 
 tk.Label(frame2, text="Enter Name", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=120)
-txt2 = tk.Entry(frame2, width=32, font=('times', 15))
+txt2 = tk.Entry(frame2, width=28, font=('times', 15))
 txt2.place(x=30, y=150)
 
 tk.Label(frame2, text="Enter Email", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=195)
-txt_email = tk.Entry(frame2, width=32, font=('times', 15))
+txt_email = tk.Entry(frame2, width=28, font=('times', 15))
 txt_email.place(x=30, y=225)
 
 # Clear Buttons
@@ -427,7 +516,7 @@ tk.Button(frame2, text="Clear", command=clear3, bg="#ea2a2a", width=11).place(x=
 
 # Action Buttons
 message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="#00aeff", font=('times', 15, ' bold '))
-message1.place(x=7, y=280)
+message1.place(x=100,y=280)
 
 tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=325)
 tk.Button(frame2, text="Save Profile", command=TrainImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=395)
@@ -479,25 +568,43 @@ scroll=ttk.Scrollbar(frame1,orient='vertical',command=tv.yview)
 scroll.grid(row=2,column=4,padx=(0,100),pady=(150,0),sticky='ns')
 tv.configure(yscrollcommand=scroll.set)
 
-###################### BUTTONS ##################################
+################################################################### BUTTON ###################################################
+# --- CLEAR BUTTONS ---
+# Clear ID
+clearButton = tk.Button(frame2, text="Clear", command=clear, fg="black", bg="#ea2a2a", width=11, activebackground="white", font=('times', 11, ' bold '))
+clearButton.place(x=335, y=73)
 
-clearButton = tk.Button(frame2, text="Clear", command=clear  ,fg="black"  ,bg="#ea2a2a"  ,width=11 ,activebackground = "white" ,font=('times', 11, ' bold '))
-clearButton.place(x=335, y=86)
-clearButton2 = tk.Button(frame2, text="Clear", command=clear2  ,fg="black"  ,bg="#ea2a2a"  ,width=11 , activebackground = "white" ,font=('times', 11, ' bold '))
-clearButton2.place(x=335, y=172)
-takeImg = tk.Button(frame2, text="Take Images", command=TakeImages  ,fg="white"  ,bg="blue"  ,width=34  ,height=1, activebackground = "white" ,font=('times', 15, ' bold '))
-takeImg.place(x=30, y=300)
-trainImg = tk.Button(frame2, text="Save Profile", command=psw ,fg="white"  ,bg="blue"  ,width=34  ,height=1, activebackground = "white" ,font=('times', 15, ' bold '))
-trainImg.place(x=30, y=380)
-trackImg = tk.Button(frame1, text="Take Attendance", command=TrackImages  ,fg="black"  ,bg="yellow"  ,width=35  ,height=1, activebackground = "white" ,font=('times', 15, ' bold '))
-trackImg.place(x=30,y=50)
-quitWindow = tk.Button(frame1, text="Quit", command=window.destroy  ,fg="black"  ,bg="red"  ,width=35 ,height=1, activebackground = "white" ,font=('times', 15, ' bold '))
+# Clear Name
+clearButton2 = tk.Button(frame2, text="Clear", command=clear2, fg="black", bg="#ea2a2a", width=11, activebackground="white", font=('times', 11, ' bold '))
+clearButton2.place(x=335, y=148)
+
+# Clear Email
+clearButton3 = tk.Button(frame2, text="Clear", command=clear3, fg="black", bg="#ea2a2a", width=11, activebackground="white", font=('times', 11, ' bold '))
+clearButton3.place(x=335, y=223)
+
+# --- ACTION BUTTONS (Right Frame) ---
+# This button now requires a password via 'psw_take'
+takeImg = tk.Button(frame2, text="Take Images", command=psw_take, fg="white", bg="blue", width=34, height=1, activebackground="white", font=('times', 15, ' bold '))
+takeImg.place(x=30, y=325)
+
+# This button requires a password via 'psw'
+trainImg = tk.Button(frame2, text="Save Profile", command=psw, fg="white", bg="blue", width=34, height=1, activebackground="white", font=('times', 15, ' bold '))
+trainImg.place(x=30, y=395)
+
+# --- ATTENDANCE & SYSTEM BUTTONS (Left Frame) ---
+trackImg = tk.Button(frame1, text="Take Attendance", command=TrackImages, fg="black", bg="yellow", width=35, height=1, activebackground="white", font=('times', 15, ' bold '))
+trackImg.place(x=30, y=50)
+
+# This button now calls 'on_closing' for a safe exit
+quitWindow = tk.Button(frame1, text="Quit", command=on_closing, fg="black", bg="red", width=35, height=1, activebackground="white", font=('times', 15, ' bold '))
 quitWindow.place(x=30, y=450)
 
 ##################### END ######################################
 
 window.configure(menu=menubar)
+
 update_registration_count()
+window.protocol("WM_DELETE_WINDOW", on_closing)
 window.mainloop()
 
 ####################################################################################################
