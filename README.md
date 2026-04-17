@@ -1,111 +1,72 @@
 # Face Recognition Attendance System
 
-A hybrid Desktop & Web application that uses Computer Vision to automate the attendance process.
-Instead of manual roll calls, this system detects faces via a webcam, recognizes registered students using the LBPH Algorithm, and automatically syncs the attendance data to a Django + PostgreSQL backend server.
+A desktop application that uses Computer Vision to automate the attendance process. Instead of manual roll calls, this system detects faces via a webcam, recognizes registered students, and marks their attendance in an Excel-compatible (CSV) file.
 
-## Key Features
+## Features
 
-- Real-Time Face Recognition: Instantly identifies students via webcam.
-
-#### Hybrid Architecture:
-
-- Desktop App (Tkinter): For capturing images and marking attendance in the classroom.
-- Web Dashboard (Django): For teachers/admins to manage students and view attendance reports.
-- Database Integration: Uses PostgreSQL for secure and scalable data storage (replacing old CSV files).
-- Multiple Attendance: Can detect and mark multiple students in a single session without duplication.
-- Auto-Sync: New registrations and attendance logs are automatically sent from the Python app to the Server via API.
+    GUI Interface: Easy-to-use interface built with Tkinter.
+    Data Collection: Automated capturing of face images for new registrations.
+    Model Training: Uses the LBPH (Local Binary Patterns Histograms) algorithm to train the model.
+    Real-Time Recognition: Detects and identifies faces instantly via webcam.
+    Auto-Logging: Saves attendance details (ID, Name, Date, Time) automatically into a CSV file.
 
 ## Tech Stack
 
-- Component Technology
-- Frontend (Desktop) Python, Tkinter, Pillow
-- Backend (Server) Django (Python Framework)
-- Database PostgreSQL
-- Computer Vision OpenCV (cv2)
-- Algorithm LBPH (Local Binary Patterns Histograms)
-- Communication REST API (requests module)
+    Language: Python
+    Interface: Tkinter
+    Computer Vision: OpenCV (cv2)
+    Data Handling: Pandas, Numpy, CSV
+    Image Processing: Pillow (PIL)
 
 ## Project Structure
 
-- main.py: The Desktop Application (Camera & GUI).
-- Backend_Server/: The Django Project folder containing the API and Admin Panel.
-- TrainingImage/: Stores raw photos captured for training.
-- TrainingImageLabel/: Stores the trained model (Trainner.yml).
-- haarcascade_frontalface_default.xml: Pre-trained model required for face detection.
+    When you run the project, it automatically creates these necessary folders:
+    TrainingImage/: Stores the raw photos taken for training.
+    TrainingImageLabel/: Stores the trained model (Trainner.yml) and password file.
+    StudentDetails/: Contains the list of registered students.
+    Attendance/: Contains the daily attendance logs.
 
 ## Installation & Setup
 
-#### Clone the Repository
+Clone the Repository (or download the files).
 
-      git clone https://github.com/MagarPrashant0/Final-Year-Project.git
-      cd Final-Year-Project
+### Install Required Libraries:
 
-#### Install Python Dependencies
+Open your terminal/command prompt and run:
 
-You need libraries for both the Desktop App and the Django Server.
-pip install opencv-contrib-python numpy pandas Pillow requests django psycopg2-binary
+### code
 
-#### Setup the Database (PostgreSQL)
+pip install opencv-contrib-python numpy pandas Pillow
+(Note: You must use opencv-contrib-python to access the Face Recognizer).
 
-      Install PostgreSQL and create a database named attendance_db.
-      Update Backend_Server/settings.py with your database password.
+### Haar Cascade File:
 
-#### Run the Backend Server
-
-      Open a terminal in the Backend_Server folder:
-      python manage.py makemigrations
-      python manage.py migrate
-      python manage.py createsuperuser  # Create your Admin login
-      python manage.py runserver
-      Keep this terminal running.
-
-#### Run the Desktop App
-
-      Open a new terminal in the main folder:
-      python main.py
+    Ensure the file haarcascade_frontalface_default.xml is present in the main project folder. This file is required to detect faces.
 
 ## How to Use
 
-#### Step 1: Register a New Student
+Run the Application:
 
-      Enter ID and Name in the Tkinter App.
-      Click "Take Images".
-      The app captures 60-100 photos.
-      It automatically sends the Student Details to the Django Database.
-      Click "Save Profile".
-      Enter the admin password to train the model.
+### code
 
-#### Step 2: Mark Attendance
+python main.py
 
-      Click "Take Attendance".
-      The webcam opens. When a face is recognized:
-      The Name is displayed on the screen.
-      The status is updated from Absent to Present in the Database.
-      Press 'q' or click the "X" to close.
+### Register a New Student:
 
-#### Step 3: View Reports (Admin Panel)
+    Enter ID and Name in the text boxes.
+    Click "Take Images". The webcam will open and take samples of your face.
+    Click "Save Profile". You will be asked for a password (to prevent unauthorized training). This processes the images and trains the model.
 
-      Open your browser and go to: http://127.0.0.1:8000/admin/
-      Login with your superuser credentials.
-      View the list of Students and daily Attendance logs.
+### Mark Attendance:
 
-#### Architecture Diagram
+    Click "Take Attendance".
+    The webcam will open. If your face is recognized, your name will appear on the screen.
+    The attendance is automatically saved to the Attendance/ folder.
+    Press q or click the "STOP" button (if enabled) to close the camera.
 
-![Face recognization system architecture diagram ](image.png)
+## How it Works
 
-## How it Works (Logic Flow)
-
-- Detection: OpenCV (Haar Cascade) finds a face in the video frame.
-- Recognition: The LBPH algorithm compares the face against the trained Trainner.yml model.
-
-## API Call:
-
-- If a match is found, Python sends the Student ID to the Django Server via HTTP POST.
-- Django updates the PostgreSQL database.
-- Django responds with the Student Name, which is then shown on the camera screen.
-
-## Important Notes
-
-- LBPH Algorithm: We use cv2.face.LBPHFaceRecognizer because it is robust against lighting changes.
-- PostgreSQL: Ensure the Postgres service is running before starting Django.
-- Camera: If the camera doesn't open, ensure no other application (like Zoom) is using it.
+1. Face Detection: The system uses Haarcascade to find a face in the frame (converting it to grayscale).
+2. Feature Extraction: It crops the face and saves it.
+3. Training: The LBPH algorithm analyzes the saved photos and creates a mathematical model (Trainner.yml).
+4. Recognition: When taking attendance, the live video is compared against the Trainner.yml model to find a match.
