@@ -32,5 +32,6 @@ urlpatterns = [
     path('api/add_student/', add_student_api),
     path('api/run_email_check/', trigger_absence_check),
     path('api/get_student_count/', views.get_student_count),
+    path('api/run_email_check/', views.trigger_absence_check),
 ]
 

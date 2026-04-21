@@ -1,6 +1,11 @@
 """
 Django settings for Backend_Server project.
 """
+from django.apps import AppConfig
+
+class CoreConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'core'
 
 from pathlib import Path
 
@@ -97,3 +102,12 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- EMAIL CONFIGURATION ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'alemagar523@gmail.com' # Your Gmail address
+EMAIL_HOST_PASSWORD = 'wzdc wkyu atoe qrjv'    # Your 16-character App Password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

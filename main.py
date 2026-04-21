@@ -8,7 +8,7 @@ import tkinter.simpledialog as tsd
 import cv2,os
 import csv
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageTk, ImageEnhance
 import pandas as pd
 import datetime
 import time
@@ -481,64 +481,133 @@ mont={'01':'January',
 window = tk.Tk()
 window.geometry("1280x720")
 window.resizable(False, False)
-window.title("Attendance System")
-window.configure(background='#262523')
+window.title("Attendance Management System Pro")
 
-# Frames
-frame1 = tk.Frame(window, bg="#00aeff")
-frame1.place(relx=0.11, rely=0.17, relwidth=0.39, relheight=0.80)
+# --- MODERN COLOR PALETTE ---
+BG_MAIN = "#0b0d17"         # Deep Midnight
+BG_CARD = "#161b22"         # Slate Card Color (GitHub Dark style)
+ACCENT_BLUE = "#3498db"     # Professional Blue
+ACCENT_GREEN = "#2ecc71"    # Professional Green
+ACCENT_RED = "#e74c3c"      # Professional Red
+TEXT_LIGHT = "#e6edf3"      # Off-white text
+# --- 1. MAIN BACKGROUND IMAGE ---
+try:
+    # Load background, darken it by 60% for better contrast, and resize
+    raw_bg = Image.open("background.jpg")
+    enhancer = ImageEnhance.Brightness(raw_bg)
+    darkened_bg = enhancer.enhance(0.4)
+    resized_bg = darkened_bg.resize((1280, 720), Image.LANCZOS)
+    bg_img = ImageTk.PhotoImage(resized_bg)
 
-frame2 = tk.Frame(window, bg="#00aeff")
-frame2.place(relx=0.51, rely=0.17, relwidth=0.38, relheight=0.80)
+    bg_label = tk.Label(window, image=bg_img)
+    bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+except:
+    window.configure(background=BG_MAIN)
 
-# Labels
-tk.Label(window, text="Face Recognition Based Attendance System", fg="white", bg="#262523", font=('times', 29, ' bold ')).place(x=10, y=10)
-tk.Label(frame1, text="--- For Already Registered ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).place(x=100, y=0)
-tk.Label(frame2, text="--- For New Registrations ---", fg="black", bg="#3ece48", font=('times', 17, ' bold ')).place(x=100, y=0)
+# --- 2. HEADER BAR (Title, Date, and Orange Clock) ---
+header = tk.Frame(window, bg="#000000", height=80)
+header.pack(side="top", fill="x")
 
-# Registration Inputs (Adjusted Y for no overlap)
-tk.Label(frame2, text="Enter ID", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=45)
-txt = tk.Entry(frame2, width=28, font=('times', 15))
-txt.place(x=30, y=75)
+# Main Title
+tk.Label(header, text="FACIAL RECOGNITION SYSTEM",
+         fg=ACCENT_BLUE, bg="#000000", font=("Helvetica", 26, "bold")).place(x=30, y=15)
 
-tk.Label(frame2, text="Enter Name", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=120)
-txt2 = tk.Entry(frame2, width=28, font=('times', 15))
-txt2.place(x=30, y=150)
+# Date and Clock (Top Right)
+date_label = tk.Label(header, text="", fg="#aaaaaa", bg="#000000", font=("Helvetica", 12, "bold"))
+date_label.place(x=1080, y=15)
 
-tk.Label(frame2, text="Enter Email", bg="#00aeff", font=('times', 17, ' bold ')).place(x=80, y=195)
-txt_email = tk.Entry(frame2, width=28, font=('times', 15))
-txt_email.place(x=30, y=225)
+clock = tk.Label(header, text="", fg="orange", bg="#000000", font=("Helvetica", 22, "bold"))
+clock.place(x=1080, y=35)
+
+# --- 3. LEFT CARD (Live Attendance Log) ---
+frame1 = tk.Frame(window, bg=BG_CARD, highlightbackground=ACCENT_BLUE, highlightthickness=1)
+frame1.place(x=30, y=110, width=580, height=580)
+
+# CCTV Icon
+try:
+    img_a = Image.open("icon_attendance.png").resize((80, 80), Image.LANCZOS)
+    render_a = ImageTk.PhotoImage(img_a)
+    lbl_icon1 = tk.Label(frame1, image=render_a, bg=BG_CARD)
+    lbl_icon1.image = render_a # Reference to prevent garbage collection
+    lbl_icon1.pack(pady=(15, 0))
+except: pass
+
+tk.Label(frame1, text="LIVE MONITORING", fg=ACCENT_BLUE, bg=BG_CARD, font=("Helvetica", 14, "bold")).pack(pady=5)
+
+# Camera Button
+trackImg = tk.Button(frame1, text="START CAMERA", command=TrackImages,
+                     fg="white", bg=ACCENT_BLUE, width=25, font=("Helvetica", 13, "bold"),
+                     activebackground="#2980b9", bd=0, cursor="hand2")
+trackImg.pack(pady=10)
+
+# Styled Treeview (Table)
+style = ttk.Style()
+style.theme_use("clam")
+style.configure("Treeview", background=BG_CARD, foreground=TEXT_LIGHT, fieldbackground=BG_CARD, rowheight=35, borderwidth=0)
+style.configure("Treeview.Heading", background="#21262d", foreground=ACCENT_BLUE, font=("Helvetica", 11, "bold"), borderwidth=1)
+style.map("Treeview", background=[('selected', "#238636")])
+
+tv = ttk.Treeview(frame1, height=10, columns=('name', 'date', 'time'))
+tv.column('#0', width=60); tv.column('name', width=130); tv.column('date', width=110); tv.column('time', width=110)
+tv.heading('#0', text='ID'); tv.heading('name', text='NAME'); tv.heading('date', text='DATE'); tv.heading('time', text='TIME')
+tv.place(x=30, y=210, width=520, height=300)
+
+# Exit Button
+quitWindow = tk.Button(frame1, text="EXIT SYSTEM", command=on_closing,
+                       fg="#8b949e", bg="#21262d", width=25, font=("Helvetica", 11, "bold"), bd=0, cursor="hand2")
+quitWindow.place(x=160, y=530)
+
+# --- 4. RIGHT CARD (Student Registration) ---
+frame2 = tk.Frame(window, bg=BG_CARD, highlightbackground=ACCENT_GREEN, highlightthickness=1)
+frame2.place(x=660, y=110, width=580, height=580)
+
+# Face Recognition Icon
+try:
+    img_r = Image.open("icon_registration.png").resize((80, 80), Image.LANCZOS)
+    render_r = ImageTk.PhotoImage(img_r)
+    lbl_icon2 = tk.Label(frame2, image=render_r, bg=BG_CARD)
+    lbl_icon2.image = render_r
+    lbl_icon2.pack(pady=(15, 0))
+except: pass
+
+tk.Label(frame2, text="USER ENROLLMENT", fg=ACCENT_GREEN, bg=BG_CARD, font=("Helvetica", 14, "bold")).pack(pady=5)
+
+# Helper function for Input Fields
+def create_entry_group(parent, label_text, y_pos):
+    tk.Label(parent, text=label_text, fg="#8b949e", bg=BG_CARD, font=("Helvetica", 10, "bold")).place(x=60, y=y_pos)
+    ent = tk.Entry(parent, font=("Helvetica", 13), bg="#0d1117", fg=TEXT_LIGHT, bd=0, insertbackground="white")
+    ent.place(x=60, y=y_pos+22, width=380, height=32)
+    # Modern underline
+    tk.Frame(parent, bg="#30363d", height=2).place(x=60, y=y_pos+54, width=380)
+    return ent
+
+txt = create_entry_group(frame2, "STUDENT ID", 150)
+txt2 = create_entry_group(frame2, "FULL NAME", 215)
+txt_email = create_entry_group(frame2, "EMAIL ADDRESS", 280)
 
 # Clear Buttons
-tk.Button(frame2, text="Clear", command=clear, bg="#ea2a2a", width=11).place(x=335, y=73)
-tk.Button(frame2, text="Clear", command=clear2, bg="#ea2a2a", width=11).place(x=335, y=148)
-tk.Button(frame2, text="Clear", command=clear3, bg="#ea2a2a", width=11).place(x=335, y=223)
+tk.Button(frame2, text="Clear", command=clear, fg=ACCENT_BLUE, bg=BG_CARD, bd=0, font=("Helvetica", 9, "bold")).place(x=450, y=172)
+tk.Button(frame2, text="Clear", command=clear2, fg=ACCENT_BLUE, bg=BG_CARD, bd=0, font=("Helvetica", 9, "bold")).place(x=450, y=237)
+tk.Button(frame2, text="Clear", command=clear3, fg=ACCENT_BLUE, bg=BG_CARD, bd=0, font=("Helvetica", 9, "bold")).place(x=450, y=302)
 
 # Action Buttons
-message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="#00aeff", font=('times', 15, ' bold '))
-message1.place(x=100,y=280)
+takeImg = tk.Button(frame2, text="CAPTURE FACE", command=psw_take,
+                    fg="white", bg="#238636", width=34, font=("Helvetica", 13, "bold"), bd=0, cursor="hand2")
+takeImg.place(x=60, y=370)
 
-tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=325)
-tk.Button(frame2, text="Save Profile", command=TrainImages, fg="white", bg="blue", width=34, font=('times', 15, ' bold ')).place(x=30, y=395)
+trainImg = tk.Button(frame2, text="SAVE PROFILE", command=psw,
+                     fg="white", bg="#1f6feb", width=34, font=("Helvetica", 13, "bold"), bd=0, cursor="hand2")
+trainImg.place(x=60, y=430)
 
-# Attendance Table (Left Frame)
-tk.Button(frame1, text="Take Attendance", command=TrackImages, bg="yellow", width=35, font=('times', 15, ' bold ')).place(x=30, y=50)
+# Registration Counter Label
+message = tk.Label(frame2, text="Total Registrations: 0", bg=BG_CARD, fg="#8b949e", font=("Helvetica", 11, "italic"))
+message.place(x=200, y=510)
 
-tv = ttk.Treeview(frame1, height=13, columns=('name', 'date', 'time'))
-tv.column('#0', width=82); tv.column('name', width=130); tv.column('date', width=133); tv.column('time', width=133)
-tv.heading('#0', text='ID'); tv.heading('name', text='NAME'); tv.heading('date', text='DATE'); tv.heading('time', text='TIME')
-tv.place(x=10, y=150)
-
-# Clock/Date
-frame3 = tk.Frame(window, bg="#262523"); frame3.place(relx=0.52, rely=0.09, relwidth=0.09, relheight=0.07)
-clock = tk.Label(frame3, fg="orange", bg="#262523", font=('times', 22, ' bold '))
-clock.pack()
-tick()
-
-tk.Button(frame1, text="Quit", command=window.destroy, bg="red", width=35, font=('times', 15, ' bold ')).place(x=30, y=450)
-
+# --- 5. INITIALIZE GUI LOGIC ---
+window.protocol("WM_DELETE_WINDOW", on_closing)
+tick()                        # Start live clock
+update_registration_count()    # Fetch count from Django
 window.mainloop()
-
 
 ##################### MENUBAR #################################
 
