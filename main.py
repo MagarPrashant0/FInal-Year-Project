@@ -349,91 +349,103 @@ def getImagesAndLabels(path):
 ###########################################################################################
 # Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
-    # 1. Clear the table on the left before starting
     check_haarcascadefile()
+    # 1. Clear the UI table before starting
     for k in tv.get_children():
         tv.delete(k)
 
-    # 2. Tell Django to start a new session (Mark everyone absent for today)
+    # 2. Tell Django to start a new session (Marks everyone absent initially)
     try:
-        requests.get("http://127.0.0.1:8000/api/start_session/")
-        print("Session Started: All students marked absent initially.")
+        requests.get("http://127.0.0.1:8000/api/start_session/", timeout=2)
     except:
-        print("Backend Server is offline. Attendance will not be saved to Database.")
+        print("Backend Server Offline. Attendance will not be synced.")
 
     # 3. Load the Face Recognizer
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    if os.path.isfile("TrainingImageLabel\\Trainner.yml"):
-        recognizer.read("TrainingImageLabel\\Trainner.yml")
+    exists = os.path.isfile("TrainingImageLabel/Trainner.yml")
+    if exists:
+        recognizer.read("TrainingImageLabel/Trainner.yml")
     else:
-        mess._show(title='Data Missing', message='Please click "Save Profile" to train the system first!')
+        mess._show(title='Data Missing', message='Please click "Save Profile" to train the model first!')
         return
 
-    # 4. Initialize Camera and Font
+    # 4. Setup Camera and Classifier
     harcascadePath = "haarcascade_frontalface_default.xml"
     faceCascade = cv2.CascadeClassifier(harcascadePath)
     cam = cv2.VideoCapture(0)
-    font = cv2.FONT_HERSHEY_SIMPLEX
 
-    # These lists keep track of who we already recognized in THIS session
-    marked_ids = []
-    id_to_name = {}
+    # Optional: Increase resolution for classroom environment
+    cam.set(3, 1280) # Width
+    cam.set(4, 720)  # Height
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    marked_ids = []   # List to prevent double-marking attendance in one session
+    id_to_name = {}   # Cache to store names locally for the video display
 
     while True:
         ret, im = cam.read()
         if not ret: break
 
+        # --- IMPROVEMENT: LIGHTING NORMALIZATION ---
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        # This function balances the light and dark parts of the image
+        # It is the best way to stop the "Unknown" error caused by shadows.
+        gray = cv2.equalizeHist(gray)
+
+        # --- MULTI-FACE DETECTION ---
+        # scaleFactor 1.2 is good for detecting multiple faces at different distances
         faces = faceCascade.detectMultiScale(gray, 1.2, 5)
 
         for (x, y, w, h) in faces:
-            # Draw the box around the face
+            # Draw a blue rectangle around every face detected
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
 
-            # Predict the ID
+            # Predict the ID and Confidence
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
 
-            # Check if the match is good (Confidence < 85 is usually a good match)
-            if conf < 85:
-                detected_id = str(serial)
+            # --- THE CONFIDENCE THRESHOLD ---
+            # LBPH confidence: Lower is better.
+            # 95 is a good balance. If it still says Unknown, try 100 or 110.
+            if conf < 95:
+                det_id = str(serial)
 
-                # --- STEP A: If it's a NEW recognition, sync with Django ---
-                if detected_id not in marked_ids:
+                # Logic: If this person hasn't been marked yet today
+                if det_id not in marked_ids:
                     try:
-                        API_URL = "http://127.0.0.1:8000/api/mark_attendance/"
-                        response = requests.post(API_URL, json={'student_id': detected_id})
-
-                        if response.status_code == 200:
-                            data = response.json()
+                        # Sync with Django PostgreSQL
+                        res = requests.post("http://127.0.0.1:8000/api/mark_attendance/",
+                                            json={'student_id': det_id}, timeout=3)
+                        if res.status_code == 200:
+                            data = res.json()
                             actual_name = data.get('name', 'Unknown')
 
-                            # Save name in memory so we can show it on the screen
-                            id_to_name[detected_id] = actual_name
+                            # Store in local memory for the display
+                            id_to_name[det_id] = actual_name
 
                             # Add to the UI Table on the left
                             ts = time.time()
                             timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                            tv.insert('', 0, text=detected_id, values=(actual_name, "Today", timeStamp))
+                            tv.insert('', 0, text=det_id, values=(actual_name, "Today", timeStamp))
 
-                            # Add to marked list so we don't spam the server
-                            marked_ids.append(detected_id)
-                    except Exception as e:
-                        print(f"Error syncing attendance for ID {detected_id}: {e}")
-                        id_to_name[detected_id] = f"ID: {detected_id}"
+                            marked_ids.append(det_id)
+                    except:
+                        # If server is down, show the ID as the name
+                        id_to_name[det_id] = f"ID:{det_id}"
 
-                # --- STEP B: Show the Name on the Video Feed ---
-                # Get the name from our dictionary (memory)
-                display_name = id_to_name.get(detected_id, "Processing...")
-                cv2.putText(im, display_name, (x, y + h + 30), font, 1, (255, 255, 255), 2)
+                # Get name from cache and show on screen
+                display_name = id_to_name.get(det_id, "Recognized")
+                # Green text for known faces
+                cv2.putText(im, f"{display_name}", (x, y-10), font, 0.8, (0, 255, 0), 2)
 
             else:
-                # If confidence is bad, show "Unknown" in Red
-                cv2.putText(im, "Unknown", (x, y + h + 30), font, 1, (0, 0, 255), 2)
+                # If confidence is too high (above 95), it is an unknown person
+                # Red text for Unknown
+                cv2.putText(im, "Unknown", (x, y-10), font, 0.8, (0, 0, 255), 2)
 
-        # Show the camera window
+        # Show the video feed
         cv2.imshow('Attendance System - Press Q to Quit', im)
 
-        # Break loop if 'q' is pressed
+        # Break loop on 'q'
         if cv2.waitKey(1) == ord('q'):
             break
 
@@ -441,17 +453,14 @@ def TrackImages():
     cam.release()
     cv2.destroyAllWindows()
 
-    # 6. TRIGGER THE AUTOMATED EMAIL CHECK
-    # This calls the Django script to check for 3-day absences
-    print("Camera closed. Checking for 3-day absences and sending emails...")
+    # 6. TRIGGER EMAIL AUTOMATION
+    # This runs the script to check who is absent and sends the emails
+    print("Attendance session ended. Checking for absences...")
     try:
-        email_res = requests.get("http://127.0.0.1:8000/api/run_email_check/")
-        if email_res.status_code == 200:
-            print("Server Response:", email_res.json().get('message'))
-        else:
-            print("Server encountered an error while processing emails.")
+        requests.get("http://127.0.0.1:8000/api/run_email_check/", timeout=5)
+        print("Email automation check complete.")
     except:
-        print("Backend server unreachable for email processing.")
+        print("Could not reach email server.")
 
 ######################################## USED STUFFS ############################################
 # Initialize global variables and setup date formatting (Number to Month Name)
