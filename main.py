@@ -482,7 +482,7 @@ header = tk.Frame(window, bg="#000000", height=80)
 header.pack(side="top", fill="x")
 
 # Main Title
-tk.Label(header, text="FACIAL RECOGNITION SYSTEM",
+tk.Label(header, text="FACE RECOGNITION SYSTEM",
          fg=ACCENT_BLUE, bg="#000000", font=("Helvetica", 26, "bold")).place(x=30, y=15)
 
 # Date and Clock (Top Right)
