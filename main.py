@@ -50,18 +50,21 @@ def on_closing():
 
 # Clears ID box
 def clear():
+    global message1
     txt.delete(0, 'end')
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
 
 # Clears Name box
 def clear2():
+    global message1
     txt2.delete(0, 'end')
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
 
 # Clears Email box (NEW)
 def clear3():
+    global message1
     txt_email.delete(0, 'end')
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
@@ -257,7 +260,7 @@ def TakeImages():
                 cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
                 sampleNum += 1
                 # Save the captured image in the TrainingImage folder
-                cv2.imwrite(f"TrainingImage\\{name}.{serial}.{Id}.{sampleNum}.jpg", gray[y:y + h, x:x + w])
+                cv2.imwrite(f"TrainingImage\\{name}.{Id}.{sampleNum}.jpg", gray[y:y + h, x:x + w])
                 cv2.imshow('Taking Images', img)
 
             if cv2.waitKey(100) & 0xFF == ord('q') or sampleNum > 100:
@@ -327,140 +330,101 @@ def TrainImages():
 ############################################################################################3
 
 def getImagesAndLabels(path):
-    # get the path of all the files in the folder
     imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
-    # create empth face list
     faces = []
-    # create empty ID list
     Ids = []
-    # now looping through all the image paths and loading the Ids and the images
     for imagePath in imagePaths:
-        # loading the image and converting it to gray scale
         pilImage = Image.open(imagePath).convert('L')
-        # Now we are converting the PIL image into numpy array
         imageNp = np.array(pilImage, 'uint8')
-        # getting the Id from the image
-        ID = int(os.path.split(imagePath)[-1].split(".")[1])
-        # extract the face from the training image sample
-        faces.append(imageNp)
-        Ids.append(ID)
+
+        # Filename is Name.ID.SampleNum.jpg
+        filename = os.path.split(imagePath)[-1]
+
+        try:
+            # The ID is the 2nd element (index 1)
+            ID = int(filename.split(".")[1])
+            faces.append(imageNp)
+            Ids.append(ID)
+        except:
+            print(f"Skipping invalid file: {filename}")
+
     return faces, Ids
 
 ###########################################################################################
 # Runs the webcam to recognize faces, matches them to the database, and saves the attendance record to a daily CSV file
 def TrackImages():
     check_haarcascadefile()
-    # 1. Clear the UI table before starting
     for k in tv.get_children():
         tv.delete(k)
 
-    # 2. Tell Django to start a new session (Marks everyone absent initially)
     try:
         requests.get("http://127.0.0.1:8000/api/start_session/", timeout=2)
     except:
-        print("Backend Server Offline. Attendance will not be synced.")
+        print("Backend Server Offline.")
 
-    # 3. Load the Face Recognizer
     recognizer = cv2.face.LBPHFaceRecognizer_create()
-    exists = os.path.isfile("TrainingImageLabel/Trainner.yml")
-    if exists:
+    if os.path.isfile("TrainingImageLabel/Trainner.yml"):
         recognizer.read("TrainingImageLabel/Trainner.yml")
     else:
-        mess._show(title='Data Missing', message='Please click "Save Profile" to train the model first!')
+        mess._show(title='Error', message='Please Train Profile first!')
         return
 
-    # 4. Setup Camera and Classifier
-    harcascadePath = "haarcascade_frontalface_default.xml"
-    faceCascade = cv2.CascadeClassifier(harcascadePath)
+    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
     cam = cv2.VideoCapture(0)
-
-    # Optional: Increase resolution for classroom environment
-    cam.set(3, 1280) # Width
-    cam.set(4, 720)  # Height
+    cam.set(3, 1280) # High Def Width
+    cam.set(4, 720)  # High Def Height
 
     font = cv2.FONT_HERSHEY_SIMPLEX
-    marked_ids = []   # List to prevent double-marking attendance in one session
-    id_to_name = {}   # Cache to store names locally for the video display
+    marked_ids = []
+    id_to_name = {}
 
     while True:
         ret, im = cam.read()
         if not ret: break
 
-        # --- IMPROVEMENT: LIGHTING NORMALIZATION ---
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        # This function balances the light and dark parts of the image
-        # It is the best way to stop the "Unknown" error caused by shadows.
         gray = cv2.equalizeHist(gray)
 
-        # --- MULTI-FACE DETECTION ---
-        # scaleFactor 1.2 is good for detecting multiple faces at different distances
-        faces = faceCascade.detectMultiScale(gray, 1.2, 5)
+        # --- MULTI-FACE DETECTION CHANGE ---
+        # scaleFactor 1.1 (instead of 1.2) is much better at finding small faces in the back
+        # minNeighbors 6 reduces "fake" boxes
+        faces = faceCascade.detectMultiScale(gray, 1.1, 6)
 
         for (x, y, w, h) in faces:
-            # Draw a blue rectangle around every face detected
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
-
-            # Predict the ID and Confidence
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
 
-            # --- THE CONFIDENCE THRESHOLD ---
-            # LBPH confidence: Lower is better.
-            # 95 is a good balance. If it still says Unknown, try 100 or 110.
-            if conf < 95:
+            # --- CONFIDENCE CHANGE ---
+            # Increase to 115 to stop it from saying "Unknown" so often
+            if conf < 115:
                 det_id = str(serial)
 
-                # Logic: If this person hasn't been marked yet today
                 if det_id not in marked_ids:
                     try:
-                        # Sync with Django PostgreSQL
                         res = requests.post("http://127.0.0.1:8000/api/mark_attendance/",
-                                            json={'student_id': det_id}, timeout=3)
+                                            json={'student_id': det_id}, timeout=2)
                         if res.status_code == 200:
-                            data = res.json()
-                            actual_name = data.get('name', 'Unknown')
-
-                            # Store in local memory for the display
+                            actual_name = res.json().get('name', 'Unknown')
                             id_to_name[det_id] = actual_name
-
-                            # Add to the UI Table on the left
-                            ts = time.time()
-                            timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                            tv.insert('', 0, text=det_id, values=(actual_name, "Today", timeStamp))
-
+                            tv.insert('', 0, text=det_id, values=(actual_name, "Today", time.strftime('%H:%M:%S')))
                             marked_ids.append(det_id)
                     except:
-                        # If server is down, show the ID as the name
                         id_to_name[det_id] = f"ID:{det_id}"
 
-                # Get name from cache and show on screen
-                display_name = id_to_name.get(det_id, "Recognized")
-                # Green text for known faces
-                cv2.putText(im, f"{display_name}", (x, y-10), font, 0.8, (0, 255, 0), 2)
-
+                display_name = id_to_name.get(det_id, "Matching...")
+                cv2.putText(im, display_name, (x, y-10), font, 0.8, (0, 255, 0), 2)
             else:
-                # If confidence is too high (above 95), it is an unknown person
-                # Red text for Unknown
                 cv2.putText(im, "Unknown", (x, y-10), font, 0.8, (0, 0, 255), 2)
 
-        # Show the video feed
-        cv2.imshow('Attendance System - Press Q to Quit', im)
+        cv2.imshow('Attendance System - Q to Quit', im)
+        if cv2.waitKey(1) == ord('q'): break
 
-        # Break loop on 'q'
-        if cv2.waitKey(1) == ord('q'):
-            break
-
-    # 5. Cleanup
     cam.release()
     cv2.destroyAllWindows()
-
-    # 6. TRIGGER EMAIL AUTOMATION
-    # This runs the script to check who is absent and sends the emails
-    print("Attendance session ended. Checking for absences...")
     try:
         requests.get("http://127.0.0.1:8000/api/run_email_check/", timeout=5)
-        print("Email automation check complete.")
     except:
-        print("Could not reach email server.")
+        pass
 
 ######################################## USED STUFFS ############################################
 # Initialize global variables and setup date formatting (Number to Month Name)
@@ -570,6 +534,9 @@ quitWindow.place(x=160, y=530)
 frame2 = tk.Frame(window, bg=BG_CARD, highlightbackground=ACCENT_GREEN, highlightthickness=1)
 frame2.place(x=660, y=110, width=580, height=580)
 
+message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile",
+                    bg=BG_CARD, fg=ACCENT_BLUE, font=("Helvetica", 11, "bold"))
+message1.place(x=100, y=300) # Adjust Y coordinate to fit your layout
 # Face Recognition Icon
 try:
     img_r = Image.open("icon_registration.png").resize((80, 80), Image.LANCZOS)
